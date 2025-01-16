@@ -48,5 +48,8 @@ func SetupRoutes(router *gin.Engine) {
 	router.POST("/task/tg/:userId", controllers.ClaimTgBonus)
 	router.POST("/task/invite-3/:userId", controllers.Invite3Bonus)
 	router.POST("/task/invite-7/:userId", controllers.Invite7Bonus)
+
+	// AI Routes
+	router.POST("/christ-ai/verse", controllers.GetVerse)
 	
 }
