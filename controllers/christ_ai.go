@@ -44,7 +44,7 @@ func GetVerse(c *gin.Context) {
 func getTopicOrVerseFromAI(prompt string) (string, error) {
     url := "https://api.openai.com/v1/completions"
     payload := `{
-        "model": "text-davinci-003",
+        "model": "GPT-3.5 Turbo",
         "prompt": "Suggest a Bible topic or verse for this prompt: ` + prompt + `",
         "max_tokens": 20
     }`
