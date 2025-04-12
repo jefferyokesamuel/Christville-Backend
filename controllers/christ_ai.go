@@ -1,99 +1,117 @@
 package controllers
 
 import (
-    "encoding/json"
-    "errors"
-    "fmt"
-    "net/http"
-    "net/url"
-    "christville/model"
-    "strings"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
-    "github.com/gin-gonic/gin"
+	"christville/model"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetVerse handles the request to fetch Bible verses based on a user prompt.
 func GetVerse(c *gin.Context) {
-    var request model.VerseRequest
-    if err := c.ShouldBindJSON(&request); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	var request model.VerseRequest
 
-    // Get topic or verse reference from AI
-    topicOrVerse, err := getTopicOrVerseFromAI(request.Prompt)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "AI processing failed"})
-        return
-    }
+	// Validate input
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    // Fetch the actual verse(s) using the Bible API
-    verses, err := getVersesFromBibleAPI(topicOrVerse)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch verses"})
-        return
-    }
+	// Call DeepSeek AI to process the prompt and return verses
+	verses, err := getTopicOrVerseFromDeepSeek(request.Prompt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process prompt with AI: " + err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "prompt": request.Prompt,
-        "result": verses,
-    })
+	// Return successful response
+	c.JSON(http.StatusOK, gin.H{
+		"prompt": request.Prompt,
+		"result": verses,
+	})
 }
 
-// getTopicOrVerseFromAI queries the AI to suggest a Bible topic or verse.
-func getTopicOrVerseFromAI(prompt string) (string, error) {
-    url := "https://api.openai.com/v1/completions"
-    payload := `{
-        "model": "GPT-3.5 Turbo",
-        "prompt": "Suggest a Bible topic or verse for this prompt: ` + prompt + `",
-        "max_tokens": 20
-    }`
+// getTopicOrVerseFromDeepSeek queries DeepSeek AI to suggest Bible verses based on mood.
+func getTopicOrVerseFromDeepSeek(prompt string) (string, error) {
+	url := "https://api.deepseek.com/chat/completions"
 
-    client := &http.Client{}
-    req, err := http.NewRequest("POST", url, strings.NewReader(payload))
-    if err != nil {
-        return "", err
-    }
+	// Get API key from environment
+	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("DEEPSEEK_API_KEY not found in environment variables")
+	}
 
-    req.Header.Set("Authorization", "Bearer YOUR_OPENAI_API_KEY")
-    req.Header.Set("Content-Type", "application/json")
+	// Create the JSON payload for DeepSeek
+	payload := map[string]interface{}{
+		"model": "deepseek-chat",
+		"messages": []map[string]string{
+			{
+				"role":    "system",
+				"content": "You are a compassionate Christian assistant. Analyze the user's mood (e.g., sad, anxious, joyful) and respond ONLY with 2-3 relevant Bible verses for encouragement or guidance. Format: \"1. [Verse] — [Reference]\"",
+			},
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"temperature": 0.3, // Less randomness for focused responses
+		"max_tokens":  300, // Limit output length
+		"stream":      false,
+	}
 
-    resp, err := client.Do(req)
-    if err != nil {
-        return "", err
-    }
-    defer resp.Body.Close()
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JSON payload: %w", err)
+	}
 
-    var result map[string]interface{}
-    err = json.NewDecoder(resp.Body).Decode(&result)
-    if err != nil {
-        return "", err
-    }
+	// Create the HTTP request
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-    choices := result["choices"].([]interface{})
-    if len(choices) == 0 {
-        return "", errors.New("no response from AI")
-    }
+	// Send the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
 
-    output := choices[0].(map[string]interface{})["text"].(string)
-    return strings.TrimSpace(output), nil
-}
+	// Handle non-200 responses
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("DeepSeek API error: %d, body: %s", resp.StatusCode, string(body))
+	}
 
-// getVersesFromBibleAPI queries the Bible API to fetch verses based on a query.
-func getVersesFromBibleAPI(query string) ([]model.Verse, error) {
-    apiURL := fmt.Sprintf("https://api.openbible.info/topics/%s", url.QueryEscape(query))
+	// Parse the response
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
 
-    resp, err := http.Get(apiURL)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse response JSON: %w", err)
+	}
 
-    var verses []model.Verse
-    err = json.NewDecoder(resp.Body).Decode(&verses)
-    if err != nil {
-        return nil, err
-    }
+	// Extract the assistant's reply (Bible verses)
+	if len(result.Choices) == 0 {
+		return "", errors.New("no choices in DeepSeek response")
+	}
 
-    return verses, nil
+	return strings.TrimSpace(result.Choices[0].Message.Content), nil
 }
