@@ -60,6 +60,11 @@ func ConnectMongoDB() (*mongo.Client, error) {
 func GetClient() *mongo.Client {
 	if clientInstance == nil {
 		log.Println("⚠️ Warning: MongoDB client accessed before initialization")
+		// Try to connect if not already connected
+		_, err := ConnectMongoDB()
+		if err != nil {
+			log.Printf("Error connecting to MongoDB: %v", err)
+		}
 	}
 	return clientInstance
 }

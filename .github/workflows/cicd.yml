@@ -60,11 +60,9 @@ jobs:
               ports:
                 - '8080:8080'
               environment:
-                - DATABASE_NAME=${DATABASE_NAME}
-                - MONGODB_URI=${MONGODB_URI}
-                - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-              env_file:
-                - .env" > docker-compose.yml
+                - DATABASE_NAME=${{secrets.DATABASE_NAME}}
+                - MONGODB_URI=${{secrets.MONGODB_URI}}
+                - DEEPSEEK_API_KEY=${{secrets.DEEPSEEK_API_KEY}}" > docker-compose.yml
 
       - name: Deploy with Docker Compose
         run: |

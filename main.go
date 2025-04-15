@@ -31,16 +31,13 @@ func main() {
 	}
 
 	// Initialize database connection
-	_ = db.GetClient()
-
-	// Connect to MongoDB
 	client, err := db.ConnectMongoDB()
 	if err != nil {
-		log.Fatalf("Error connecting to MongoDB: %v\n", err)
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 	defer func() {
 		if err := client.Disconnect(context.Background()); err != nil {
-			log.Printf("Error disconnecting MongoDB: %v\n", err)
+			log.Printf("Error disconnecting from MongoDB: %v", err)
 		}
 	}()
 
