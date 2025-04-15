@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -23,7 +24,12 @@ func ConnectMongoDB() (*mongo.Client, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		uri := "mongodb+srv://jefferyokesamuel1:YShPTjt5BETnP770@christville.rss18.mongodb.net/?retryWrites=true&w=majority&appName=Christville"
+		// Get MongoDB URI from environment variable
+		uri := os.Getenv("MONGODB_URI")
+		if uri == "" {
+			clientInstanceError = fmt.Errorf("MONGODB_URI environment variable is not set")
+			return
+		}
 
 		clientOptions := options.Client().
 			ApplyURI(uri).
