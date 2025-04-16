@@ -59,10 +59,12 @@ jobs:
               restart: always
               ports:
                 - '8080:8080'
+              env_file:
+                - .env
               environment:
-                - DATABASE_NAME=${{secrets.DATABASE_NAME}}
+                - DEEPSEEK_API_KEY=${{secrets.DEEPSEEK_API_KEY}}
                 - MONGODB_URI=${{secrets.MONGODB_URI}}
-                - DEEPSEEK_API_KEY=${{secrets.DEEPSEEK_API_KEY}}" > docker-compose.yml
+                - DATABASE_NAME=${{secrets.DATABASE_NAME}}" > docker-compose.yml
 
       - name: Deploy with Docker Compose
         run: |

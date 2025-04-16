@@ -46,7 +46,9 @@ func getTopicOrVerseFromDeepSeek(prompt string) (string, error) {
 	// Get API key from environment
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("DEEPSEEK_API_KEY not found in environment variables")
+		// Log all environment variables for debugging (excluding sensitive ones)
+		fmt.Printf("Environment variables available: %v\n", os.Environ())
+		return "", fmt.Errorf("DEEPSEEK_API_KEY not found in environment variables. Please check your Docker environment configuration.")
 	}
 
 	// Create the JSON payload for DeepSeek
