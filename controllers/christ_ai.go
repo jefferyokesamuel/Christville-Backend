@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"christville/model"
 
@@ -57,15 +56,15 @@ func getTopicOrVerseFromDeepSeek(prompt string) (string, error) {
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": "You are a compassionate Christian assistant. Analyze the user's mood (e.g., sad, anxious, joyful) and respond ONLY with 2-3 relevant Bible verses for encouragement or guidance. Format: \"1. [Verse] — [Reference]\"",
+				"content": "You are a compassionate Christian assistant. Analyze the user's mood and respond with a brief, empathetic message followed by 2-3 relevant Bible verses. IMPORTANT: Return ONLY a JSON object with this exact structure, no markdown or additional text: {\"message\": \"brief empathetic response\", \"verses\": [{\"text\": \"verse text\", \"reference\": \"book chapter:verse\"}, ...]}",
 			},
 			{
 				"role":    "user",
 				"content": prompt,
 			},
 		},
-		"temperature": 0.3, // Less randomness for focused responses
-		"max_tokens":  300, // Limit output length
+		"temperature": 0.3,
+		"max_tokens":  300,
 		"stream":      false,
 	}
 
@@ -115,5 +114,6 @@ func getTopicOrVerseFromDeepSeek(prompt string) (string, error) {
 		return "", errors.New("no choices in DeepSeek response")
 	}
 
-	return strings.TrimSpace(result.Choices[0].Message.Content), nil
+	// Return the raw JSON response
+	return result.Choices[0].Message.Content, nil
 }
